@@ -6,15 +6,18 @@
 # used to redistricting and ensuring representation.
 
 
-
+library(tidyverse)
 library(tidycensus)
 options(tigris_use_cache = TRUE)
 
 ## install.packages(c("tidycensus", "tidyverse", "mapview"))
 
 ## library(tidycensus)
-## 
-census_api_key("a66aed7c8d937b01af50d7ff853bbb1be2e96d8b", install = TRUE)
+## census_api_key("", overwrite = TRUE, install = TRUE)
+## readRenviron("~/.Renviron")
+## Sys.getenv("CENSUS_API_KEY")
+
+# total population variable
 
 pop20 <- get_decennial(
   geography = "state",
@@ -24,6 +27,9 @@ pop20 <- get_decennial(
 
 pop20
 
+# differential privacy explanation. error is added
+# at small geographies to preserve privacy.
+
 table_p2 <- get_decennial(
   geography = "state", 
   table = "P2", 
@@ -31,6 +37,8 @@ table_p2 <- get_decennial(
 )
 
 table_p2
+
+# population for all counties in texas
 
 tx_population <- get_decennial(
   geography = "county",
@@ -41,6 +49,9 @@ tx_population <- get_decennial(
 )
 
 tx_population
+
+# Population for specific census blocks within a specific county. 
+# Must specify state because there are so many counties with the same name.
 
 matagorda_blocks <- get_decennial(
   geography = "block",
@@ -53,20 +64,37 @@ matagorda_blocks <- get_decennial(
 
 matagorda_blocks
 
-## vars <- load_variables(2020, "dhc")
+ vars <- load_variables(2020, "dhc")
 ## 
-## View(vars)
-## 
+ View(vars)
+## the concept column is the subject of the table that
+ # the variable is located within
+ 
+ # Understand that variables starting with H
+ # are household level variables, P variables are
+ # available down to the census block. PCT available at census
+ # tract and larger
 
 single_year_age <- get_decennial(
   geography = "state",
   table = "PCT12",
   year = 2020,
-  sumfile = "dhc"
+  sumfile = "dhc" # Note the meanings of the different types
+  # of sum files: dhc = dhc data, dp = The Demographic Profile,
+  # which contains pre tabulated values, cd118 or the 118th
+  # congressional districts file, and the detailed
+  # DHC-A or "ddhca" file.
+  # DP comes from DHC, but DP gives precomputed tabulations.
 )
+
+# list summary files like this: summary_files(year = 2020)
+
+dp_vars <- load_variables(2020, "dp")
 
 
 single_year_age
+
+# If you want wide data, just specify it in the output argument.
 
 single_year_age_wide <- get_decennial(
   geography = "state",
@@ -77,6 +105,9 @@ single_year_age_wide <- get_decennial(
 )
 
 single_year_age_wide
+
+# Use the variables argument to get nice columns immediately
+# upon calling the data from the API.
 
 ca_samesex <- get_decennial(
   geography = "county",
@@ -89,6 +120,21 @@ ca_samesex <- get_decennial(
 )
 
 ca_samesex
+
+# Part 1 exercise
+
+renter_households <- get_decennial(
+  geography = "tract",
+  state = "FL",
+  year = 2020,
+  sumfile = "dhc",
+  county = "Orange",
+  variables = "H4_004N"
+)
+
+
+
+# Part 2 starts here
 
 library(tidyverse)
 
@@ -115,6 +161,13 @@ below1000 <- filter(tx_population, value < 1000)
 
 below1000
 
+# computing derived columns for custom tabulations that
+# do not exist in the demographic profile. Do
+# This using summary_var argument, which will add the denominator
+# for your estimates.
+
+# start by specifying a named vector.
+
 race_vars <- c(
   Hispanic = "P5_010N",
   White = "P5_003N",
@@ -127,18 +180,24 @@ race_vars <- c(
 cd_race <- get_decennial(
   geography = "congressional district",
   variables = race_vars,
-  summary_var = "P5_001N", 
+  summary_var = "P5_001N", # this is the appropriate denominator for a table
   year = 2020,
-  sumfile = "cd118"
+  sumfile = "cd118" # note this is the only sumfile with congressional district
 )
 
 cd_race
+
+# Note the "summary_value" column. 
+# Now we can calculate our own race percentages for congressional districts
 
 cd_race_percent <- cd_race %>%
   mutate(percent = 100 * (value / summary_value)) %>% 
   select(NAME, variable, percent) 
 
-cd_race_percent
+cd_race_percent |> arrange(NAME)
+
+
+# get largest racial group in each district
 
 largest_group <- cd_race_percent %>%
   group_by(NAME) %>% 
@@ -154,6 +213,9 @@ cd_race_percent %>%
   group_by(variable) %>% 
   summarize(median_pct = median(percent, na.rm = TRUE)) 
 
+
+# Note the use of geometry = TRUE to get census tract boundaries
+
 iowa_over_65 <- get_decennial(
   geography = "tract",
   variables = "DP1_0024P",
@@ -163,7 +225,7 @@ iowa_over_65 <- get_decennial(
   year = 2020
 )
 
-
+# Note the geometry shape file data set
 iowa_over_65
 
 library(mapview)
@@ -172,24 +234,74 @@ mapview(iowa_over_65)
 
 mapview(iowa_over_65, zcol = "value")
 
+# adding a title to legend
 mapview(iowa_over_65, zcol = "value",
         layer.name = "% age 65 and up<br>Census tracts in Iowa")
 
 
 library(viridisLite)
 
+# just adding a different color palette here
 mapview(iowa_over_65, zcol = "value",
         layer.name = "% age 65 and up<br>Census tracts in Iowa",
         col.regions = inferno(100))
 
-## library(htmlwidgets)
-## 
-## m1 <- mapview(iowa_over_65, zcol = "value",
-##         layer.name = "% age 65 and up<br>Census tracts in Iowa",
-##         col.regions = inferno(100))
-## 
-## saveWidget(m1@map, "iowa_over_65.html")
-## 
+# How can you embed an interactive map like this in a website?
+
+
+library(htmlwidgets)
+
+m1 <- mapview(iowa_over_65, zcol = "value",
+        layer.name = "% age 65 and up<br>Census tracts in Iowa",
+        col.regions = inferno(100))
+
+saveWidget(m1@map, "iowa_over_65.html") # You can plug this into an iframe
+# on a website
+
+
+########################################################
+
+# Part 2 exercise
+
+two_race <- get_decennial(
+  geography = "county",
+  variable = "P10_009N",
+  state = "FL",
+  geometry = TRUE,
+  sumfile = "dhc",
+  year = 2020
+)
+
+# Note the geometry shape file data set
+two_race
+
+library(mapview)
+
+mapview(two_race)
+
+mapview(two_race, zcol = "value")
+
+
+
+
+###################################################
+
+
+# This is the start of Part 3 - detailed DHC-A and
+# time series analysis
+
+# tabulation of 2020 decennial census results
+# for population by sex and age
+# Key feature: break-outs for thousands of racial and ethnic groups
+
+
+ddhca_vars <- load_variables(2020,"ddhca")
+
+# only 82 variables, always broken out by population group.
+# there is true total column because of this.
+
+# some of these categories are within the total column, but
+# the hierarchy is unclear. so there sort of is a total column?
 
 mn_population_groups <- get_decennial(
   geography = "state",
@@ -197,12 +309,14 @@ mn_population_groups <- get_decennial(
   state = "MN",
   year = 2020,
   sumfile = "ddhca",
-  pop_group = "all",
-  pop_group_label = TRUE
+  pop_group = "all", # this argument is required
+  pop_group_label = TRUE # the label for that population group
 )
 
 
 mn_population_groups
+
+# get_pop_groups to answer how many groups
 
 available_groups <- get_pop_groups(2020, "ddhca")
 
@@ -211,10 +325,12 @@ get_decennial(
   variables = "T02001_001N",
   state = "MN",
   county = "Hennepin",
-  pop_group = "1325",
+  pop_group = "1325", # somali in any combination
   year = 2020,
   sumfile = "ddhca"
 )
+
+# How to get 
 
 check_ddhca_groups(
   geography = "county", 

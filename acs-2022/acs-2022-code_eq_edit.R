@@ -22,8 +22,13 @@ median_value <- get_acs(
   variables = "B25077_001",
   year = 2022
 )
+# 
+# median_value |> 
+#   arrange(desc(estimate)) |> 
+#   View()
 
-median_value
+
+
 
 median_value_1yr <- get_acs(
   geography = "place",
@@ -52,10 +57,13 @@ sd_value <- get_acs(
 
 sd_value
 
-## vars <- load_variables(2022, "acs5")
-## 
-## View(vars)
-## 
+vars <- load_variables(2022, "acs5")
+
+#View(vars)
+
+vars_profile <- load_variables(2022, "acs5/profile")
+
+ 
 
 age_sex_table <- get_acs(
   geography = "state", 
@@ -67,6 +75,8 @@ age_sex_table <- get_acs(
 
 age_sex_table
 
+# You can also get wide data using the output argument.
+
 age_sex_table_wide <- get_acs(
   geography = "state", 
   table = "B01001", 
@@ -76,6 +86,9 @@ age_sex_table_wide <- get_acs(
 )
 
 age_sex_table_wide
+
+# You can replace the identifiers for variable names as you call the api.
+# Just make sure you know what you're pulling before you label it.
 
 ca_education <- get_acs(
   geography = "county",
@@ -94,6 +107,30 @@ get_acs(
   year = 2022,
   survey = "acs1"
 )
+
+# Let's search for median household income for census blocks
+# in Orlando
+
+
+orange_value <- get_acs(
+  geography = "tract", 
+  variables = "B19049_001", 
+  state = "FL", 
+  county = "Orange",
+  year = 2022
+)
+
+# this is identical to orange_value.
+# the same information may appear in multiple tables in acs data.
+orange_value2 <- get_acs(
+  geography = "tract", 
+  variables = "B19013_001", 
+  state = "FL", 
+  county = "Orange",
+  year = 2022
+)
+
+
 
 get_acs(
   geography = "state",
@@ -159,6 +196,8 @@ utah_plot_errorbar <- ggplot(utah_income, aes(x = estimate,
 
 utah_plot_errorbar
 
+# The geometry = TRUE is what gives you information for mapping.
+
 cook_education <- get_acs(
   geography = "tract",
   variables = "DP02_0068P",
@@ -176,6 +215,11 @@ mapview(cook_education)
 
 mapview(cook_education, zcol = "estimate")
 
+# Mapping 1 year ACS data is dangerous because of 
+# data sparsity, and may imply patterns that only
+# exist because of the pattern of missing data,
+# not a pattern in the data.
+
 tx_education <- get_acs(
   geography = "county",
   variables = "DP02_0068P",
@@ -186,6 +230,9 @@ tx_education <- get_acs(
 )
 
 mapview(tx_education, zcol = "estimate")
+
+# Using public use microdata to get maps of variables
+# that may be sparse in the 1 year acs.
 
 wa_wfh <- get_acs(
   geography = "puma",
@@ -212,14 +259,76 @@ ct_income <- get_acs(
 mapview(ct_income, zcol = "estimate")
 
 
+# Part 2 exercises
+
+# Pay attention to differences in margins of error
+# of median home values in the 5 year rolling average
+# versus the one year estimates, and the actual estimates
+# of home values. More recent estimates are much higher
+# reflecting post covid rises in prices.
+
+florida_median_value <- get_acs(
+  geography = "county",
+  variables = "B25077_001",
+  state = "FL",
+  year = 2022,
+  geometry = TRUE
+)
+
+florida_median_value_one_year <- get_acs(
+  geography = "county",
+  variables = "B25077_001",
+  state = "FL",
+  year = 2022,
+  survey = "acs1",
+  geometry = TRUE
+)
+
+oc_median_value <- get_acs(
+  geography = "tract",
+  variables = "B25077_001",
+  county = c("Orange","Seminole"),
+  state = "FL",
+  year = 2022,
+  geometry = TRUE
+)
+
+mapview(oc_median_value, zcol = "estimate")
+
+
+bc_median_value <- get_acs(
+  geography = "tract",
+  variables = "B25077_001",
+  county = c("Baltimore City","Baltimore County"),
+  state = "MD",
+  year = 2022,
+  geometry = TRUE
+)
+
+mapview(bc_median_value, zcol = "estimate")
+
+
+# Part 3 Working with ACS Microdata
+
+# Here we are showing how census tract designations, but not boundaries,
+# have changed between 2021 and 2022.
+
 library(tigris)
 library(mapview)
 ct_tract_21 <- tracts("CT", cb = TRUE, year = 2021)
 ct_tract_22 <- tracts("CT", cb = TRUE, year = 2022)
 
+# This vertical | character is how you make a swipe map.
+
 mapview(ct_tract_21) | mapview(ct_tract_22)
 
 library(tidycensus)
+
+# Be careful with get pums, because it defaults to
+# 5 year acs data, which could be 16 million rows
+
+# PUMS = PUBLIC USE MICRODATA SERIES
+
 
 or_pums <- get_pums(
   variables = c("SEX", "AGEP", "HHT"),
@@ -232,14 +341,25 @@ or_pums
 
 library(tidyverse)
 
+# How can we figure out how many 40 year olds there are in Oregon?
+# Essentially summing over the person weights for all people and
+# then only for 40 year olds and getting that percentage.
+
 or_age_40 <- filter(or_pums, AGEP == 40)
+
+#PWGTP is person weights
 
 print(sum(or_pums$PWGTP))
 print(sum(or_age_40$PWGTP))
 
+# Let's use acs data 
+
 get_acs("state", "B01003_001", state = "OR", survey = "acs1", year = 2022)
 
-## View(pums_variables)
+#View(pums_variables)
+
+# recode = TRUE is very useful, no need to waste time recoding
+# household type or sex or anything else, it's automated.
 
 or_pums_recoded <- get_pums(
   variables = c("SEX", "AGEP", "HHT"),
@@ -250,6 +370,11 @@ or_pums_recoded <- get_pums(
 )
 
 or_pums_recoded
+
+# Using the variables argument with the variables_filter
+# argument allows you to pull down only the data you really
+# need, reducing download times. This example code is 
+# pulling women in oregon between ages 30 and 49 only.
 
 or_pums_filtered <- get_pums(
   variables = c("SEX", "AGEP", "HHT"),
@@ -271,7 +396,18 @@ or_age_by_puma <- get_pums(
   year = 2022
 )
 
+
+# Note that PUMAS change every 10 years. The first
+# 1 year ACS to use 2020 PUMAS is the 2022 ACS dataset.
+
 or_age_by_puma
+
+# How do we handle uncertainty in PUMS data?. The Census Bureau
+# recommends using successive difference replication to calculate
+# standard errors, and provides replicate wieghts to do this.
+
+# tidycensus includes tools to help you get replicate wieghts and
+# format your data for appropriate survey-weighted analysis
 
 or_pums_replicate <- get_pums(
   variables = c("AGEP", "PUMA"),
@@ -284,6 +420,14 @@ or_pums_replicate <- get_pums(
 
 or_pums_replicate
 
+# Note that we know have many columns corresponding to a 
+# variety of different person weights. We use all of these
+# to generate a distribution of possibilities.
+
+# The "to_survey" function takes this dataframe and converts
+# to an object that is ready for use with R packages built
+# for analyzing survey data.
+
 or_survey <- to_survey(
   or_pums_replicate,
   type = "person"
@@ -293,10 +437,14 @@ class(or_survey)
 
 library(srvyr)
 
+# Now we can generate margins of error for PUMS data.
+
 or_survey %>%
   filter(AGEP == 40) %>%
   survey_count() %>%
   mutate(n_moe = n_se * 1.645)
+
+# We can also do something similar grouping by PUMA
 
 or_survey %>%
   group_by(PUMA) %>%
