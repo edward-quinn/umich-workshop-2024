@@ -320,6 +320,9 @@ mn_population_groups
 
 available_groups <- get_pop_groups(2020, "ddhca")
 
+# This code does not work on purpose. Meant
+# to show the adaptive design error message.
+
 get_decennial(
   geography = "county",
   variables = "T02001_001N",
@@ -330,7 +333,9 @@ get_decennial(
   sumfile = "ddhca"
 )
 
-# How to get 
+# How to get the tables that are available for 
+# a given group for a given geography with the
+# check_ddhca_groups function
 
 check_ddhca_groups(
   geography = "county", 
@@ -339,7 +344,14 @@ check_ddhca_groups(
   county = "Hennepin"
 )
 
+# seen above, sometimes we can get a more
+# detailed breakdown of a racial group by age
+# in 23 categories for example, but not in less
+# detailed categories, like groups of 4 or 9.
+
 library(tidycensus)
+
+# mapping sparse data is always risky.
 
 hennepin_somali <- get_decennial(
   geography = "tract",
@@ -356,6 +368,9 @@ hennepin_somali <- get_decennial(
 
 mapview(hennepin_somali, zcol = "value")
 
+
+# a dot density map - specifying how many
+# people a single dot represents
 somali_dots <- as_dot_density(
   hennepin_somali,
   value = "value",
@@ -365,31 +380,48 @@ somali_dots <- as_dot_density(
 mapview(somali_dots, cex = 0.01, layer.name = "Somali population<br>1 dot = 25 people",
         col.regions = "navy", color = "navy")
 
+
+
+##############
+# Time Series
+##############
+
+# Looking at how populations have changed over time
+# in different areas of the US. You can compare
+# 2010 to 2020 census data for example, but you
+# need to be careful since some variable codes have
+# changed over time.
+
+
 county_pop_10 <- get_decennial(
   geography = "county",
-  variables = "P001001", 
+  variables = "P001001", # Total Population
   year = 2010,
-  sumfile = "sf1"
+  sumfile = "sf1" # summary file 1 from the 2010 census
 )
 
 
 county_pop_10
 
+# Now we need to preprocess this data to make a comparison to 
+# 2020.
+
 county_pop_10_clean <- county_pop_10 %>%
-  select(GEOID, value10 = value) 
+  select(GEOID, value10 = value) # just renaming the value column
 
 county_pop_10_clean
 
 county_pop_20 <- get_decennial(
   geography = "county",
-  variables = "P1_001N",
+  variables = "P1_001N", # Note the change in variable code from 2010
   year = 2020,
-  sumfile = "dhc"
+  sumfile = "dhc" # Note the change in the summary file since 2010
 ) %>%
   select(GEOID, NAME, value20 = value)
 
 county_joined <- county_pop_20 %>%
-  left_join(county_pop_10_clean, by = "GEOID") 
+  left_join(county_pop_10_clean, by = "GEOID") # GEOID is the consistent,
+# unique identifier
 
 county_joined
 

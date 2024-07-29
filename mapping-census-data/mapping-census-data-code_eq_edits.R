@@ -45,10 +45,22 @@ library(mapview)
 
 mapview(texas_income_sf, zcol = "estimate")
 
-## vars <- load_variables(2022, "acs5")
-## 
-## View(vars)
-## 
+# searching for variables is hard. use load_variables, with suffixes
+# on the survey name.
+
+# vars <- load_variables(2022, "acs5")
+# 
+# View(vars)
+# 
+# vars <- load_variables(2022, "acs5/profile")
+# 
+# View(vars) # Any variable with a "P" at the end is a percentage
+# with an appropriate denominator.
+
+
+
+
+
 
 nyc_income <- get_acs(
   geography = "tract",
@@ -62,6 +74,9 @@ nyc_income <- get_acs(
 
 
 mapview(nyc_income, zcol = "estimate")
+
+# Note that the tracts are in the hudson and east rivers.
+# this will be resolved later.
 
 san_diego_race <- get_acs(
   geography = "tract",
@@ -112,6 +127,7 @@ library(tigris)
 library(sf)
 sf_use_s2(FALSE)
 
+# Remove water area with erase_water
 nyc_erase <- erase_water(
   nyc_income_tiger,
   area_threshold = 0.5,
@@ -120,6 +136,33 @@ nyc_erase <- erase_water(
 
 
 mapview(nyc_erase, zcol = "estimate")
+
+# End of Part 1. Exercises.
+
+
+vars <- load_variables(2022, "acs1")
+
+
+fl_income <- get_acs(
+  geography = "county",
+  variables = "B19013_001",
+  state = "FL",
+  year = 2022,
+  survey = "acs1",
+  geometry = TRUE
+)
+
+
+mapview(fl_income, zcol = "estimate")
+
+
+
+
+
+
+################
+# Part 2
+################
 
 library(tidyverse)
 
@@ -142,7 +185,7 @@ cont_choro
 classed_choro <- ggplot(san_diego_asian, aes(fill = estimate)) + 
   geom_sf() + 
   theme_void() + 
-  scale_fill_viridis_b(option = "rocket", n.breaks = 6) + 
+  scale_fill_viridis_b(option = "rocket", n.breaks = 6) + # scale fill b for breaks
   labs(title = "Percent Asian by Census tract",
        subtitle = "San Diego County, CA",
        fill = "ACS estimate",
@@ -161,6 +204,9 @@ faceted_choro <- ggplot(san_diego_race, aes(fill = estimate)) +
        caption = "2018-2022 ACS | tidycensus R package")
 
 faceted_choro
+
+# what about using circles of different sizes? Have to convert
+# our polygon to a centroid, gives back a dataset of points.
 
 san_diego_race_counts <- get_acs(
   geography = "tract",
@@ -194,9 +240,11 @@ grad_symbol <- ggplot() +
   labs(title = "Hispanic population by Census tract",
        subtitle = "2018-2022 ACS, San Diego County, California",
        size = "ACS estimate") + 
-  scale_size_area(max_size = 6) 
+  scale_size_area(max_size = 6) # here is where the dot becomes proportional
 
 grad_symbol
+
+# Making a dot density map to show heterogeneity on a map
 
 san_diego_race_dots <- as_dot_density(
   san_diego_race_counts,
@@ -211,17 +259,24 @@ dot_density_map <- ggplot() +
   geom_sf(data = san_diego_hispanic, color = "lightgrey", fill = "white") + 
   geom_sf(data = san_diego_race_dots, aes(color = variable), size = 0.01) + 
   scale_color_brewer(palette = "Set1") + 
-  guides(color = guide_legend(override.aes = list(size = 3))) + 
+  guides(color = guide_legend(override.aes = list(size = 3))) + # override default dot size
   theme_void() + 
   labs(color = "Race / ethnicity",
        caption = "2018-2022 ACS | 1 dot = approximately 200 people")
 
 dot_density_map
 
+
+
+# How to use ggspatial to add a basemap, with familiar cities
+# roads, landmarks, etc. to better contextualize the data you
+# are mapping.
+
+library(prettymapr)
 library(ggspatial)
 
 dot_density_with_basemap <- ggplot() + 
-  annotation_map_tile(type = "cartolight", zoom = 9) + 
+  annotation_map_tile(type = "cartolight", zoom = 9) + # bring in a map tile as a baselayer
   geom_sf(data = san_diego_race_dots, aes(color = variable), size = 0.01) + 
   scale_color_brewer(palette = "Set1") + 
   guides(color = guide_legend(override.aes = list(size = 3))) + 
@@ -241,6 +296,8 @@ mv1 <- mapview(san_diego_asian, zcol = "estimate",
 
 mv1
 
+# Looking at two maps at once.
+
 library(leafsync)
 
 san_diego_white <- filter(san_diego_race, variable == "White")
@@ -257,14 +314,16 @@ mv2 <- sync(m1, m2)
 
 mv2
 
-## install.packages("remotes")
-## library(remotes)
-## install_github("qfes/rdeck")
+install.packages("remotes")
+library(remotes)
+install_github("qfes/rdeck")
 
 library(tidyverse)
 
+# get_flows to get acs migration flows dataset from and map using deckgl.
+
 fulton_inflow <- get_flows(
-  geography = "county",
+  geography = "county", #2016-2020 is the most recent county to county dataset.
   state = "GA",
   county = "Fulton",
   geometry = TRUE,
@@ -274,7 +333,8 @@ fulton_inflow <- get_flows(
   na.omit()
 
 fulton_top_origins <- fulton_inflow %>%
-  slice_max(estimate, n = 30) 
+  slice_max(estimate, n = 30) # retain only top 30 origins for migrants to atlanta
+# during this period.
 
 library(rdeck)
 
